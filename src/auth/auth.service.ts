@@ -3,8 +3,9 @@ import { RpcException } from '@nestjs/microservices';
 import { PrismaClient } from '@prisma/client';
 import { LoginUserDto, RegisterUserDto } from './dto';
 import * as bcrypt from 'bcrypt';
-import { JwtService } from '@nestjs/jwt';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
+import { envs } from 'src/config';
+import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class AuthService extends PrismaClient implements OnModuleInit {
@@ -17,6 +18,24 @@ export class AuthService extends PrismaClient implements OnModuleInit {
   async onModuleInit() {
     await this.$connect();
     this.logger.log('MongoDB connected');
+  }
+
+  async verifyToken(token: string) {
+    try {
+      const { sub, iat, exp, ...user } = this.jwtService.verify(token, {
+        secret: envs.JwtSecret,
+      });
+      return {
+        user: user,
+        token: await this.singJWT(user),
+      };
+    } catch (error) {
+      console.log(error);
+      throw new RpcException({
+        status: 401,
+        message: 'Invalit token',
+      });
+    }
   }
 
   singJWT(payload: JwtPayload) {
